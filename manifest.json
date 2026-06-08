@@ -1,0 +1,26 @@
+{
+  "name": "متابعة بناء المنزل",
+  "short_name": "البناء",
+  "description": "تتبع مصروفات بناء المنزل",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b5e20",
+  "theme_color": "#1b5e20",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "IMG_0189.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "IMG_0189.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

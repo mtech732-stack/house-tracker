@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "house-tracker",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/mohammedalbarrak/Desktop/house-tracker/server.js"],
+      "port": 3777
+    }
+  ]
+}
