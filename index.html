@@ -229,6 +229,12 @@ const CAT_PARTY = {
   'اشتراك كهرباء':'اشتراك كهرباء',
 };
 
+const CAT_AMOUNT = {
+  'الحارس': 70,
+  'الإشراف الهندسي': 150,
+  'اشتراك كهرباء': 45,
+};
+
 const CAT_ICONS = {
   'الكهربائي مصنعية':'⚡','الكهربائي مواد':'🔌','التكييف':'❄️',
   'المقاول':'🏗️','الصحي مصنعية':'🚿','الصحي مواد':'🔧','المساح':'📐','مواد المساح':'📐',
@@ -411,6 +417,7 @@ function pickCat(inputId, ddId, val) {
   }
   if (inputId === 'f-mc-custom') {
     autofillParty('f-mpa', val);
+    autofillAmount('f-ma', val);
   }
 }
 
@@ -419,6 +426,12 @@ function autofillParty(fieldId, cat) {
   if (!field) return;
   const party = CAT_PARTY[cat] || '';
   field.value = party;
+}
+function autofillAmount(fieldId, cat) {
+  const field = document.getElementById(fieldId);
+  if (!field || field.value) return;
+  const amount = CAT_AMOUNT[cat];
+  if (amount) field.value = amount;
 }
 
 function showNote(txt) {
@@ -525,7 +538,10 @@ function renderSummary() {
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 10px">
     <div class="st" style="margin:0;flex:1">العقود والتقدم</div>
-    <button class="btn btn-g btn-sm" onclick="openContractModal()" style="white-space:nowrap;flex-shrink:0">⚙️ العقود</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="openAddContractModal()" style="white-space:nowrap;flex-shrink:0">➕ إضافة عقد</button>
+      <button class="btn btn-g btn-sm" onclick="openContractModal()" style="white-space:nowrap;flex-shrink:0">⚙️ العقود</button>
+    </div>
   </div>
   ${allContractCats().map(cat=>{
     const total=+S.contracts[cat]||0, paid=contractPaid(cat), left=total-paid;
@@ -809,7 +825,7 @@ function openExpModal(pid, eid=null) {
   <div class="mhdr"><div class="mtitle">${e?'تعديل البند':'إضافة بند مصروفات'}</div><button class="mclose" onclick="closeModal()">✕</button></div>
   <div class="fr2">
     <div class="fg"><label class="fl">بند الصرف</label>
-      ${comboCatHtml('f-ec-custom','f-ec-dd', CONSTRUCTION_CATS, e?.cat)}
+      ${comboCatHtml('f-ec-custom','f-ec-dd', [...new Set([...CONSTRUCTION_CATS, ...Object.keys(S.contracts).filter(c=>!CONSTRUCTION_CATS.includes(c))])], e?.cat)}
     </div>
     <div class="fg"><label class="fl">جهة الصرف</label>
       <input class="fc" id="f-ep" placeholder="الاسم" value="${e?e.party||'':''}">
@@ -998,21 +1014,24 @@ function openContractModal() {
     ${!CONTRACT_CATS.includes(cat)?`<button onclick="delCustomContract('${cat}')" style="background:var(--rl);border:none;border-radius:8px;padding:6px 10px;color:var(--r1);cursor:pointer;margin-top:18px;flex-shrink:0">🗑️</button>`:''}
   </div>`).join('')}
   </div>
-  <div style="border:1px dashed var(--bdr);border-radius:10px;padding:12px;margin-bottom:14px">
-    <div style="font-size:.78rem;color:var(--txt2);margin-bottom:8px;font-weight:600">➕ إضافة عقد جديد</div>
-    <div class="fr2">
-      <div class="fg"><label class="fl">اسم العقد</label>
-        <input class="fc" id="ct-new-name" placeholder="مثال: الديكور">
-      </div>
-      <div class="fg"><label class="fl">القيمة (د.ك)</label>
-        <input class="fc" id="ct-new-val" type="text" inputmode="decimal" placeholder="0" oninput="onNumInput(this)">
-      </div>
-    </div>
-    <button class="btn btn-p btn-sm" onclick="addCustomContract()" style="width:100%">➕ إضافة</button>
-  </div>
   <div class="fac">
     <button class="btn btn-g" onclick="closeModal()">إلغاء</button>
     <button class="btn btn-p" onclick="saveContracts()">💾 حفظ العقود</button>
+  </div>`);
+}
+
+function openAddContractModal() {
+  showModal(`
+  <div class="mhdr"><div class="mtitle">➕ إضافة عقد</div><button class="mclose" onclick="closeModal()">✕</button></div>
+  <div class="fg"><label class="fl">اسم العقد</label>
+    <input class="fc" id="ct-new-name" placeholder="مثال: الديكور">
+  </div>
+  <div class="fg"><label class="fl">القيمة (د.ك)</label>
+    <input class="fc" id="ct-new-val" type="text" inputmode="decimal" placeholder="0" oninput="onNumInput(this)">
+  </div>
+  <div class="fac">
+    <button class="btn btn-g" onclick="closeModal()">إلغاء</button>
+    <button class="btn btn-p" onclick="addCustomContract()">💾 إضافة</button>
   </div>`);
 }
 
@@ -1022,7 +1041,7 @@ function addCustomContract() {
   if (!name) { toast('يرجى كتابة اسم العقد'); return; }
   if (!val) { toast('يرجى إدخال القيمة'); return; }
   S.contracts[name] = val;
-  saveS(); openContractModal(); toast('تمت الإضافة ✓');
+  saveS(); closeModal(); render(); toast('تمت الإضافة ✓');
 }
 
 function delCustomContract(cat) {
