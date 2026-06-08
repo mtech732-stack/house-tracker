@@ -305,8 +305,12 @@ function totalExp() {
 function totalContracts() {
   return Object.values(S.contracts).reduce((s,v)=>s+(+v||0),0);
 }
+function allContractCats() {
+  const all = new Set([...CONTRACT_CATS, ...Object.keys(S.contracts)]);
+  return [...all].filter(cat => +S.contracts[cat] > 0 || CONTRACT_CATS.includes(cat));
+}
 function totalLeft() {
-  return CONTRACT_CATS.reduce((s,cat)=>{
+  return allContractCats().reduce((s,cat)=>{
     const t = +S.contracts[cat]||0;
     return s + (t>0 ? t - contractPaid(cat) : 0);
   },0);
@@ -523,7 +527,7 @@ function renderSummary() {
     <div class="st" style="margin:0;flex:1">العقود والتقدم</div>
     <button class="btn btn-g btn-sm" onclick="openContractModal()" style="white-space:nowrap;flex-shrink:0">⚙️ العقود</button>
   </div>
-  ${CONTRACT_CATS.map(cat=>{
+  ${allContractCats().map(cat=>{
     const total=+S.contracts[cat]||0, paid=contractPaid(cat), left=total-paid;
     const p=total>0?Math.min(100,paid/total*100):0;
     return `<div class="cc">
@@ -979,23 +983,59 @@ function delMonthly(eid) {
 //  Modals — Contracts
 // ═══════════════════════════════════════════════
 function openContractModal() {
+  const customCats = Object.keys(S.contracts).filter(c=>!CONTRACT_CATS.includes(c));
+  const allCats = [...CONTRACT_CATS, ...customCats];
   showModal(`
   <div class="mhdr"><div class="mtitle">⚙️ قيم العقود</div><button class="mclose" onclick="closeModal()">✕</button></div>
   <p style="font-size:.78rem;color:var(--txt2);margin-bottom:14px">أدخل القيمة الإجمالية لكل عقد بالدينار الكويتي</p>
-  ${CONTRACT_CATS.map(cat=>`
-  <div class="fg">
-    <label class="fl">${catIcon(cat)} ${cat}</label>
-    <input class="fc" id="ct-${cat.replace(/\s/g,'_')}" type="text" inputmode="decimal" placeholder="0" value="${S.contracts[cat]||''}" oninput="onNumInput(this)">
+  <div id="ct-list">
+  ${allCats.map(cat=>`
+  <div class="fg" style="display:flex;align-items:center;gap:8px">
+    <div style="flex:1">
+      <label class="fl">${catIcon(cat)} ${cat}</label>
+      <input class="fc" id="ct-${cat.replace(/\s/g,'_')}" type="text" inputmode="decimal" placeholder="0" value="${S.contracts[cat]||''}" oninput="onNumInput(this)">
+    </div>
+    ${!CONTRACT_CATS.includes(cat)?`<button onclick="delCustomContract('${cat}')" style="background:var(--rl);border:none;border-radius:8px;padding:6px 10px;color:var(--r1);cursor:pointer;margin-top:18px;flex-shrink:0">🗑️</button>`:''}
   </div>`).join('')}
+  </div>
+  <div style="border:1px dashed var(--bdr);border-radius:10px;padding:12px;margin-bottom:14px">
+    <div style="font-size:.78rem;color:var(--txt2);margin-bottom:8px;font-weight:600">➕ إضافة عقد جديد</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">اسم العقد</label>
+        <input class="fc" id="ct-new-name" placeholder="مثال: الديكور">
+      </div>
+      <div class="fg"><label class="fl">القيمة (د.ك)</label>
+        <input class="fc" id="ct-new-val" type="text" inputmode="decimal" placeholder="0" oninput="onNumInput(this)">
+      </div>
+    </div>
+    <button class="btn btn-p btn-sm" onclick="addCustomContract()" style="width:100%">➕ إضافة</button>
+  </div>
   <div class="fac">
     <button class="btn btn-g" onclick="closeModal()">إلغاء</button>
     <button class="btn btn-p" onclick="saveContracts()">💾 حفظ العقود</button>
   </div>`);
 }
 
+function addCustomContract() {
+  const name = document.getElementById('ct-new-name').value.trim();
+  const val = parseNum(document.getElementById('ct-new-val').value);
+  if (!name) { toast('يرجى كتابة اسم العقد'); return; }
+  if (!val) { toast('يرجى إدخال القيمة'); return; }
+  S.contracts[name] = val;
+  saveS(); openContractModal(); toast('تمت الإضافة ✓');
+}
+
+function delCustomContract(cat) {
+  if (!confirm(`حذف عقد "${cat}"؟`)) return;
+  delete S.contracts[cat];
+  saveS(); openContractModal(); toast('تم الحذف');
+}
+
 function saveContracts() {
-  CONTRACT_CATS.forEach(cat=>{
-    const v = parseNum(document.getElementById('ct-'+cat.replace(/\s/g,'_')).value);
+  allContractCats().forEach(cat=>{
+    const el = document.getElementById('ct-'+cat.replace(/\s/g,'_'));
+    if (!el) return;
+    const v = parseNum(el.value);
     if(v>0) S.contracts[cat]=v; else delete S.contracts[cat];
   });
   saveS(); closeModal(); render(); toast('تم حفظ العقود ✓');
