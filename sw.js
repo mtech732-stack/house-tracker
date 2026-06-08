@@ -1,5 +1,5 @@
-const CACHE = 'house-tracker-v4';
-const ASSETS = ['/house-tracker/', '/house-tracker/index.html', '/house-tracker/manifest.json', '/house-tracker/IMG_0189.jpg'];
+const CACHE = 'house-tracker-v5';
+const ASSETS = ['./index.html', './manifest.json', './IMG_0189.jpg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

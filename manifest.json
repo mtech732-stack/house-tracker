@@ -2,7 +2,7 @@
   "name": "متابعة بناء المنزل",
   "short_name": "البناء",
   "description": "تتبع مصروفات بناء المنزل",
-  "start_url": "/house-tracker/index.html",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1b5e20",
