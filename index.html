@@ -1081,6 +1081,10 @@ function openAddContractModal(cat=null) {
       <div style="font-size:.78rem;font-weight:600;color:var(--txt2)">دفعات العقد <span style="font-weight:400">(اختياري)</span></div>
       <button class="btn btn-p btn-sm" onclick="addInstallRow()">➕ دفعة</button>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <input class="fc" id="ct-auto-count" type="text" inputmode="numeric" placeholder="عدد الدفعات" style="flex:1">
+      <button class="btn btn-g btn-sm" onclick="autoSplitInstalls()" style="white-space:nowrap">تقسيم تلقائي</button>
+    </div>
     <div id="installs-list">
       ${contractInstallsTemp.map((ins,i)=>installRowHtml(i,ins)).join('')}
     </div>
@@ -1110,6 +1114,21 @@ function removeInstallRow(i) {
   contractInstallsTemp.splice(i,1);
   const list = document.getElementById('installs-list');
   list.innerHTML = contractInstallsTemp.map((ins,idx)=>installRowHtml(idx,ins)).join('');
+}
+
+function autoSplitInstalls() {
+  const count = parseInt(document.getElementById('ct-auto-count')?.value)||0;
+  const total = parseNum(document.getElementById('ct-new-val')?.value||'');
+  if (!count || count < 1) { toast('يرجى إدخال عدد الدفعات'); return; }
+  if (!total) { toast('يرجى إدخال قيمة العقد أولاً'); return; }
+  const each = Math.floor(total / count);
+  const remainder = total - each * count;
+  contractInstallsTemp = Array.from({length: count}, (_, i) => ({
+    num: i + 1,
+    amount: i === count - 1 ? each + remainder : each,
+    label: ''
+  }));
+  document.getElementById('installs-list').innerHTML = contractInstallsTemp.map((ins,i)=>installRowHtml(i,ins)).join('');
 }
 
 function addCustomContract(existingCat='') {
