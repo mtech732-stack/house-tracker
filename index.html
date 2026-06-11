@@ -1373,25 +1373,31 @@ function exportExcel(rows, section) {
 }
 
 function exportPDF(rows, section) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: rows.length > 20 ? 'l' : 'p', unit: 'mm', format: 'a4' });
   const cols = Object.keys(rows[0]);
-  const body = rows.map(r => cols.map(c => r[c]===''||r[c]==null?'—':String(r[c])));
-  doc.autoTable({
-    head: [cols],
-    body,
-    styles: { font: 'helvetica', fontSize: 8, halign: 'right' },
-    headStyles: { fillColor: [27,94,32], textColor: 255 },
-    alternateRowStyles: { fillColor: [240,248,240] },
-    margin: { top: 15 },
-    didDrawPage: (d) => {
-      doc.setFontSize(10);
-      doc.text('متابعة بناء المنزل', doc.internal.pageSize.width/2, 10, { align: 'center' });
-    }
-  });
-  const name = `house-tracker-${section}-${new Date().toISOString().slice(0,10)}.pdf`;
-  doc.save(name);
-  toast('تم تصدير PDF ✓', false);
+  const sectionLabel = section==='construction'?'جدول البناء':section==='monthly'?'المصروفات الشهرية':section==='contracts'?'العقود':'كامل البيانات';
+  const date = new Date().toLocaleDateString('ar-KW');
+  const thead = cols.map(c=>`<th>${c}</th>`).join('');
+  const tbody = rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c]===''||r[c]==null?'—':r[c]}</td>`).join('')}</tr>`).join('');
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">
+  <title>تصدير — ${sectionLabel}</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;direction:rtl;padding:20px;color:#111}
+    h2{text-align:center;color:#1b5e20;margin-bottom:4px}
+    .sub{text-align:center;color:#666;font-size:.85rem;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th{background:#1b5e20;color:#fff;padding:8px 10px;text-align:right}
+    td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:right}
+    tr:nth-child(even) td{background:#f0f8f0}
+    @media print{body{padding:0}button{display:none}}
+  </style></head><body>
+  <h2>🏗 متابعة بناء المنزل</h2>
+  <div class="sub">${sectionLabel} — ${date}</div>
+  <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+  <br><button onclick="window.print()" style="padding:10px 24px;background:#1b5e20;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer">🖨️ طباعة / حفظ PDF</button>
+  </body></html>`);
+  win.document.close();
+  toast('افتح الصفحة الجديدة واضغط طباعة ✓', false);
 }
 
 // ─────────────────────────────────────────────────────────────
