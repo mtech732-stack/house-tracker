@@ -8,8 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="متابعة البناء">
-<link rel="apple-touch-icon" href="IMG_0189.jpg">
-<link rel="icon" type="image/png" href="IMG_0189.jpg">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%231b5e20'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100' fill='white'%3E🏗%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <title>متابعة بناء المنزل</title>
 <style>
@@ -300,6 +299,18 @@ function paymentTotal(pid) {
 function paymentLeft(pid) {
   return paymentTotal(pid) - paymentUsed(pid);
 }
+// helpers for new contract structure {amount, installments:[]} vs old number
+function contractAmount(cat) {
+  const v = S.contracts[cat];
+  if (!v) return 0;
+  if (typeof v === 'object') return +v.amount||0;
+  return +v||0;
+}
+function contractInstallments(cat) {
+  const v = S.contracts[cat];
+  if (!v || typeof v !== 'object') return [];
+  return v.installments||[];
+}
 function contractPaid(cat) {
   return S.construction.filter(e=>e.cat===cat).reduce((s,e)=>s+(+e.paid||0),0);
 }
@@ -309,15 +320,15 @@ function totalExp() {
   return c + m;
 }
 function totalContracts() {
-  return Object.values(S.contracts).reduce((s,v)=>s+(+v||0),0);
+  return Object.keys(S.contracts).reduce((s,cat)=>s+contractAmount(cat),0);
 }
 function allContractCats() {
   const all = new Set([...CONTRACT_CATS, ...Object.keys(S.contracts)]);
-  return [...all].filter(cat => +S.contracts[cat] > 0 || CONTRACT_CATS.includes(cat));
+  return [...all].filter(cat => contractAmount(cat) > 0 || CONTRACT_CATS.includes(cat));
 }
 function totalLeft() {
   return allContractCats().reduce((s,cat)=>{
-    const t = +S.contracts[cat]||0;
+    const t = contractAmount(cat);
     return s + (t>0 ? t - contractPaid(cat) : 0);
   },0);
 }
@@ -427,6 +438,12 @@ function autofillParty(fieldId, cat) {
   const party = CAT_PARTY[cat] || '';
   field.value = party;
 }
+function onInstallPick(sel) {
+  const val = sel.value;
+  const field = document.getElementById('f-epd');
+  if (field && val) field.value = val;
+}
+
 function autofillAmount(fieldId, cat) {
   const field = document.getElementById(fieldId);
   if (!field || field.value) return;
@@ -544,7 +561,8 @@ function renderSummary() {
     </div>
   </div>
   ${allContractCats().map(cat=>{
-    const total=+S.contracts[cat]||0, paid=contractPaid(cat), left=total-paid;
+    const total=contractAmount(cat), paid=contractPaid(cat), left=total-paid;
+    const installs=contractInstallments(cat);
     const p=total>0?Math.min(100,paid/total*100):0;
     return `<div class="cc">
       <div class="cc-top">
@@ -556,7 +574,17 @@ function renderSummary() {
         <span>مدفوع: <strong>${kd(paid)}</strong></span>
         <span>متبقي: <strong style="color:${left<0?'var(--r2)':'inherit'}">${kd(left)}</strong></span>
         <span>الإجمالي: <strong>${kd(total)}</strong></span>
-      </div>`
+      </div>
+      ${installs.length>0?`
+      <div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px">
+        <div style="font-size:.75rem;color:var(--txt2);margin-bottom:6px;font-weight:600">دفعات العقد:</div>
+        ${installs.map((ins,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;padding:3px 0;border-bottom:1px solid var(--bdr)">
+          <span style="color:var(--txt2)">دفعة ${ins.num||i+1}${ins.label?' — '+ins.label:''}</span>
+          <span style="font-weight:700">${ins.amount?kd(ins.amount):'—'}</span>
+        </div>`).join('')}
+      </div>`:''}
+      `
       :`<div style="font-size:.78rem;color:var(--txt2);display:flex;align-items:center;gap:8px;margin-top:2px">
         لم تُحدَّد قيمة العقد
         <button class="btn btn-g btn-sm" onclick="openContractModal()">تحديد</button>
@@ -867,6 +895,7 @@ function autofillContract() {
   const paid = contractPaid(cat);
   const left = tv - paid;
   const pct = tv > 0 ? Math.min(100, Math.round(paid/tv*100)) : 0;
+  const installs = contractInstallments(cat);
   info.innerHTML = `
     <div style="background:var(--bl);border-radius:10px;padding:11px 14px;margin-bottom:10px">
       <div style="font-size:.78rem;color:var(--b2);font-weight:600;margin-bottom:8px">📋 تفاصيل العقد — ${cat}</div>
@@ -886,6 +915,14 @@ function autofillContract() {
         <div style="height:100%;width:${pct}%;background:var(--b2);border-radius:3px"></div>
       </div>
       <div style="text-align:left;font-size:.72rem;color:var(--b2);margin-top:4px">${pct}%</div>
+      ${installs.length>0?`
+      <div style="margin-top:10px;border-top:1px solid rgba(0,0,0,.1);padding-top:10px">
+        <label class="fl" style="margin-bottom:6px">اختر دفعة العقد <span style="font-weight:400;color:var(--txt2)">(اختياري)</span></label>
+        <select class="fc" id="f-ins-pick" onchange="onInstallPick(this)">
+          <option value="">— أو أدخل مبلغاً مخصصاً —</option>
+          ${installs.map((ins,i)=>`<option value="${ins.amount||''}">دفعة ${ins.num||i+1}${ins.label?' — '+ins.label:''}${ins.amount?' ('+kd(ins.amount)+')':''}</option>`).join('')}
+        </select>
+      </div>`:''}
     </div>`;
 }
 
@@ -1011,7 +1048,10 @@ function openContractModal() {
       <label class="fl">${catIcon(cat)} ${cat}</label>
       <input class="fc" id="ct-${cat.replace(/\s/g,'_')}" type="text" inputmode="decimal" placeholder="0" value="${S.contracts[cat]||''}" oninput="onNumInput(this)">
     </div>
-    ${!CONTRACT_CATS.includes(cat)?`<button onclick="delCustomContract('${cat}')" style="background:var(--rl);border:none;border-radius:8px;padding:6px 10px;color:var(--r1);cursor:pointer;margin-top:18px;flex-shrink:0">🗑️</button>`:''}
+    <div style="display:flex;gap:6px;margin-top:18px;flex-shrink:0">
+      <button onclick="openAddContractModal('${cat}')" style="background:var(--bl);border:none;border-radius:8px;padding:6px 10px;color:var(--b2);cursor:pointer">✏️</button>
+      ${!CONTRACT_CATS.includes(cat)?`<button onclick="delCustomContract('${cat}')" style="background:var(--rl);border:none;border-radius:8px;padding:6px 10px;color:var(--r1);cursor:pointer">🗑️</button>`:''}
+    </div>
   </div>`).join('')}
   </div>
   <div class="fac">
@@ -1020,28 +1060,73 @@ function openContractModal() {
   </div>`);
 }
 
-function openAddContractModal() {
+let contractInstallsTemp = [];
+
+function openAddContractModal(cat=null) {
+  const existing = cat ? S.contracts[cat] : null;
+  const existingAmount = cat ? contractAmount(cat) : 0;
+  const existingInstalls = cat ? contractInstallments(cat) : [];
+  contractInstallsTemp = existingInstalls.map(i=>({...i}));
+
   showModal(`
-  <div class="mhdr"><div class="mtitle">➕ إضافة عقد</div><button class="mclose" onclick="closeModal()">✕</button></div>
+  <div class="mhdr"><div class="mtitle">${cat?'✏️ تعديل عقد':'➕ إضافة عقد'}</div><button class="mclose" onclick="closeModal()">✕</button></div>
   <div class="fg"><label class="fl">اسم العقد</label>
-    <input class="fc" id="ct-new-name" placeholder="مثال: الديكور">
+    <input class="fc" id="ct-new-name" placeholder="مثال: الديكور" value="${cat||''}" ${cat?'readonly':''}>
   </div>
-  <div class="fg"><label class="fl">القيمة (د.ك)</label>
-    <input class="fc" id="ct-new-val" type="text" inputmode="decimal" placeholder="0" oninput="onNumInput(this)">
+  <div class="fg"><label class="fl">القيمة الإجمالية (د.ك)</label>
+    <input class="fc" id="ct-new-val" type="text" inputmode="decimal" placeholder="0" value="${existingAmount||''}" oninput="onNumInput(this)">
+  </div>
+  <div style="border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:.78rem;font-weight:600;color:var(--txt2)">دفعات العقد <span style="font-weight:400">(اختياري)</span></div>
+      <button class="btn btn-p btn-sm" onclick="addInstallRow()">➕ دفعة</button>
+    </div>
+    <div id="installs-list">
+      ${contractInstallsTemp.map((ins,i)=>installRowHtml(i,ins)).join('')}
+    </div>
   </div>
   <div class="fac">
     <button class="btn btn-g" onclick="closeModal()">إلغاء</button>
-    <button class="btn btn-p" onclick="addCustomContract()">💾 إضافة</button>
+    <button class="btn btn-p" onclick="addCustomContract('${cat||''}')">💾 حفظ</button>
   </div>`);
 }
 
-function addCustomContract() {
+function installRowHtml(i, ins={}) {
+  return `<div id="ins-row-${i}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <input class="fc" placeholder="رقم الدفعة" type="text" inputmode="numeric" id="ins-num-${i}" value="${ins.num||i+1}" style="width:70px;flex-shrink:0">
+    <input class="fc" placeholder="المبلغ (اختياري)" type="text" inputmode="decimal" id="ins-amt-${i}" value="${ins.amount||''}" oninput="onNumInput(this)" style="flex:1">
+    <input class="fc" placeholder="وصف (اختياري)" id="ins-lbl-${i}" value="${ins.label||''}" style="flex:1">
+    <button onclick="removeInstallRow(${i})" style="background:var(--rl);border:none;border-radius:8px;padding:6px 10px;color:var(--r1);cursor:pointer;flex-shrink:0">🗑️</button>
+  </div>`;
+}
+
+function addInstallRow() {
+  contractInstallsTemp.push({});
+  const i = contractInstallsTemp.length-1;
+  document.getElementById('installs-list').insertAdjacentHTML('beforeend', installRowHtml(i));
+}
+
+function removeInstallRow(i) {
+  contractInstallsTemp.splice(i,1);
+  const list = document.getElementById('installs-list');
+  list.innerHTML = contractInstallsTemp.map((ins,idx)=>installRowHtml(idx,ins)).join('');
+}
+
+function addCustomContract(existingCat='') {
   const name = document.getElementById('ct-new-name').value.trim();
   const val = parseNum(document.getElementById('ct-new-val').value);
   if (!name) { toast('يرجى كتابة اسم العقد'); return; }
   if (!val) { toast('يرجى إدخال القيمة'); return; }
-  S.contracts[name] = val;
-  saveS(); closeModal(); render(); toast('تمت الإضافة ✓');
+  // collect installments
+  const installs = contractInstallsTemp.map((ins,i)=>({
+    num: +document.getElementById('ins-num-'+i)?.value||i+1,
+    amount: parseNum(document.getElementById('ins-amt-'+i)?.value||'') || null,
+    label: document.getElementById('ins-lbl-'+i)?.value.trim()||''
+  })).filter(ins=>ins.num);
+  S.contracts[name] = installs.length>0
+    ? {amount: val, installments: installs}
+    : val;
+  saveS(); closeModal(); render(); toast('تم الحفظ ✓');
 }
 
 function delCustomContract(cat) {
@@ -1055,7 +1140,16 @@ function saveContracts() {
     const el = document.getElementById('ct-'+cat.replace(/\s/g,'_'));
     if (!el) return;
     const v = parseNum(el.value);
-    if(v>0) S.contracts[cat]=v; else delete S.contracts[cat];
+    if(v>0) {
+      const existing = S.contracts[cat];
+      if (typeof existing === 'object') {
+        existing.amount = v;
+      } else {
+        S.contracts[cat] = v;
+      }
+    } else {
+      delete S.contracts[cat];
+    }
   });
   saveS(); closeModal(); render(); toast('تم حفظ العقود ✓');
 }
