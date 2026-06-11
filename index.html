@@ -134,6 +134,9 @@ select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -144,6 +147,7 @@ select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   </div>
   <div style="display:flex;gap:8px">
     <button class="hdr-btn" onclick="undoLast()" title="تراجع">↩️</button>
+    <button class="hdr-btn" onclick="openExportModal()">📤 تصدير</button>
     <button class="hdr-btn" onclick="openDataModal()">💾 نقل البيانات</button>
   </div>
 </header>
@@ -1262,6 +1266,135 @@ function importData(e) {
   e.target.value = '';
 }
 
+// ── Export Modal ──────────────────────────────────────────────
+let exportState = { fmt: '', section: '', filter: '', filterVal: '' };
+
+function openExportModal() {
+  exportState = { fmt: '', section: '', filter: '', filterVal: '' };
+  renderExportStep1();
+}
+
+function renderExportStep1() {
+  showModal(`
+  <div class="mhdr"><div class="mtitle">📤 تصدير البيانات</div><button class="mclose" onclick="closeModal()">✕</button></div>
+  <div style="margin-bottom:16px;font-size:.85rem;color:var(--txt2);font-weight:600">الخطوة ١ من ٣ — اختر الصيغة</div>
+  <div style="display:flex;gap:12px">
+    <button class="btn btn-g" style="flex:1;padding:18px;font-size:1rem;flex-direction:column;gap:6px" onclick="exportState.fmt='excel';renderExportStep2()">
+      <div style="font-size:1.6rem">📊</div><div>Excel</div>
+    </button>
+    <button class="btn btn-g" style="flex:1;padding:18px;font-size:1rem;flex-direction:column;gap:6px" onclick="exportState.fmt='pdf';renderExportStep2()">
+      <div style="font-size:1.6rem">📄</div><div>PDF</div>
+    </button>
+  </div>`);
+}
+
+function renderExportStep2() {
+  showModal(`
+  <div class="mhdr"><div class="mtitle">📤 تصدير — ${exportState.fmt==='pdf'?'PDF':'Excel'}</div><button class="mclose" onclick="closeModal()">✕</button></div>
+  <div style="margin-bottom:16px;font-size:.85rem;color:var(--txt2);font-weight:600">الخطوة ٢ من ٣ — اختر القسم</div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    ${[['construction','🔨 جدول البناء'],['monthly','📅 المصروفات الشهرية'],['contracts','📋 العقود'],['all','📦 كامل البيانات']].map(([v,l])=>`
+    <button class="btn btn-g" style="justify-content:flex-start;padding:14px;font-size:.95rem" onclick="exportState.section='${v}';renderExportStep3()">${l}</button>`).join('')}
+  </div>
+  <div style="margin-top:12px"><button class="btn" style="color:var(--txt2)" onclick="renderExportStep1()">← رجوع</button></div>`);
+}
+
+function renderExportStep3() {
+  const sec = exportState.section;
+  if (sec === 'all') { doExport(); return; }
+
+  // build filter options based on section
+  const payments = S.payments.map((p,i)=>({id:p.id||i, label:`دفعة ${i+1}${p.note?' — '+p.note:''}`}));
+  const cats = sec==='construction' ? CONSTRUCTION_CATS : sec==='monthly' ? MONTHLY_CATS : allContractCats();
+  const parties = [...new Set((sec==='construction'?S.construction:sec==='monthly'?S.monthly:[])
+    .map(t=>t.party).filter(Boolean))];
+
+  const filterRows = [['all','📦 كامل القسم','']];
+  if (sec !== 'contracts') {
+    payments.forEach(p => filterRows.push(['payment:'+p.id, '💰 '+p.label, p.id]));
+  }
+  cats.forEach(c => filterRows.push(['cat:'+c, '🏷️ '+c, c]));
+  if (parties.length) parties.forEach(p => filterRows.push(['party:'+p, '👤 '+p, p]));
+
+  showModal(`
+  <div class="mhdr"><div class="mtitle">📤 تصدير — ${sec==='construction'?'البناء':sec==='monthly'?'الشهرية':'العقود'}</div><button class="mclose" onclick="closeModal()">✕</button></div>
+  <div style="margin-bottom:16px;font-size:.85rem;color:var(--txt2);font-weight:600">الخطوة ٣ من ٣ — اختر الفلتر</div>
+  <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto">
+    ${filterRows.map(([v,l])=>`
+    <button class="btn btn-g" style="justify-content:flex-start;padding:12px;font-size:.88rem" onclick="exportState.filter='${v}';doExport()">${l}</button>`).join('')}
+  </div>
+  <div style="margin-top:12px"><button class="btn" style="color:var(--txt2)" onclick="renderExportStep2()">← رجوع</button></div>`);
+}
+
+function doExport() {
+  closeModal();
+  const { fmt, section, filter } = exportState;
+  const rows = getExportRows(section, filter);
+  if (!rows.length) { toast('لا توجد بيانات للتصدير'); return; }
+  if (fmt === 'excel') exportExcel(rows, section);
+  else exportPDF(rows, section);
+}
+
+function getExportRows(section, filter) {
+  const allRows = [];
+  const sections = section === 'all' ? ['construction','monthly','contracts'] : [section];
+
+  sections.forEach(sec => {
+    if (sec === 'contracts') {
+      allContractCats().forEach(cat => {
+        const total = contractAmount(cat), paid = contractPaid(cat);
+        allRows.push({ القسم:'عقود', البند:cat, الجهة:'', التاريخ:'', المبلغ:total, المدفوع:paid, المتبقي:total-paid, الدفعة:'' });
+      });
+      return;
+    }
+    const txs = sec === 'construction' ? S.construction : S.monthly;
+    txs.forEach(tx => {
+      const pid = tx.pid||tx.payId||'';
+      const pidx = S.payments.findIndex(p=>p.id===pid||S.payments.indexOf(p)===pid);
+      const pLabel = pidx>=0 ? `دفعة ${pidx+1}` : '';
+      if (filter && filter !== 'all') {
+        if (filter.startsWith('payment:')) { const id=filter.slice(8); if (pid!=id) return; }
+        else if (filter.startsWith('cat:')) { if (tx.cat !== filter.slice(4)) return; }
+        else if (filter.startsWith('party:')) { if (tx.party !== filter.slice(6)) return; }
+      }
+      allRows.push({ القسم:sec==='construction'?'بناء':'شهرية', البند:tx.cat||'', الجهة:tx.party||'', التاريخ:tx.date||'', المبلغ:+tx.amount||0, المدفوع:'', المتبقي:'', الدفعة:pLabel });
+    });
+  });
+  return allRows;
+}
+
+function exportExcel(rows, section) {
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'بيانات');
+  const name = `house-tracker-${section}-${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, name);
+  toast('تم تصدير Excel ✓', false);
+}
+
+function exportPDF(rows, section) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: rows.length > 20 ? 'l' : 'p', unit: 'mm', format: 'a4' });
+  const cols = Object.keys(rows[0]);
+  const body = rows.map(r => cols.map(c => r[c]===''||r[c]==null?'—':String(r[c])));
+  doc.autoTable({
+    head: [cols],
+    body,
+    styles: { font: 'helvetica', fontSize: 8, halign: 'right' },
+    headStyles: { fillColor: [27,94,32], textColor: 255 },
+    alternateRowStyles: { fillColor: [240,248,240] },
+    margin: { top: 15 },
+    didDrawPage: (d) => {
+      doc.setFontSize(10);
+      doc.text('متابعة بناء المنزل', doc.internal.pageSize.width/2, 10, { align: 'center' });
+    }
+  });
+  const name = `house-tracker-${section}-${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(name);
+  toast('تم تصدير PDF ✓', false);
+}
+
+// ─────────────────────────────────────────────────────────────
 function openDataModal() {
   showModal(`
   <div class="mhdr"><div class="mtitle">💾 نقل البيانات</div><button class="mclose" onclick="closeModal()">✕</button></div>
