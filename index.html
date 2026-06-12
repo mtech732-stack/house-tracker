@@ -1613,9 +1613,12 @@ function renderSearchResults() {
           <div class="lbl">إجمالي النتائج</div>
           <div class="val g" style="font-size:1.2rem">${kd(total)}</div>
         </div>
-        <div style="text-align:center;background:var(--g2);color:#fff;border-radius:12px;padding:8px 16px">
-          <div style="font-size:1.5rem;font-weight:700">${results.length}</div>
-          <div style="font-size:.68rem;opacity:.9">بند</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="printSearchResults()" style="background:var(--g2);border:none;border-radius:10px;padding:8px 12px;color:#fff;font-size:.82rem;cursor:pointer;display:flex;align-items:center;gap:5px">🖨️ طباعة</button>
+          <div style="text-align:center;background:var(--g2);color:#fff;border-radius:12px;padding:8px 16px">
+            <div style="font-size:1.5rem;font-weight:700">${results.length}</div>
+            <div style="font-size:.68rem;opacity:.9">بند</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1647,6 +1650,63 @@ function renderSearchResults() {
         </tbody>
       </table>
     </div>`;
+}
+
+function printSearchResults() {
+  const all = [
+    ...S.construction.map(e=>({...e,_t:'بناء'})),
+    ...S.monthly.map(e=>({...e,_t:'شهري',paid:e.amount}))
+  ].sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+
+  const q = (document.getElementById('srch-inp')?.value||'').trim().toLowerCase();
+  const results = q ? all.filter(e=>
+    (e.cat||'').toLowerCase().includes(q) ||
+    (e.party||'').toLowerCase().includes(q) ||
+    (e.date||'').includes(q) ||
+    fmtD(e.date).includes(q)
+  ) : all;
+
+  if (!results.length) { toast('لا توجد نتائج للطباعة'); return; }
+  const total = results.reduce((s,e)=>s+(+e.paid||0),0);
+  const label = q ? `نتائج البحث: "${q}"` : 'جميع المصروفات';
+  const date = new Date().toLocaleDateString('ar-KW');
+
+  const rows = results.map((e,i)=>`
+    <tr>
+      <td>${e._t}</td>
+      <td>${e.cat||'—'}</td>
+      <td>${e.party||'—'}</td>
+      <td>${fmtD(e.date)}</td>
+      <td style="text-align:left;font-weight:700">${kd(+e.paid||0)}</td>
+    </tr>
+    ${e.notes?`<tr><td colspan="5" style="font-size:.75rem;color:#666;padding:2px 8px 6px">📝 ${e.notes}</td></tr>`:''}`).join('');
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">
+  <title>${label}</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;direction:rtl;padding:20px;color:#111}
+    h2{text-align:center;color:#1b5e20;margin-bottom:4px}
+    .sub{text-align:center;color:#666;font-size:.85rem;margin-bottom:4px}
+    .total{text-align:center;font-size:1rem;font-weight:700;color:#1b5e20;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th{background:#1b5e20;color:#fff;padding:8px 10px;text-align:right}
+    td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:right}
+    tr:nth-child(even) td{background:#f0f8f0}
+    th:last-child,td:last-child{text-align:left}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h2>🏗 متابعة بناء المنزل</h2>
+  <div class="sub">${label} — ${date}</div>
+  <div class="total">الإجمالي: ${kd(total)}</div>
+  <table>
+    <thead><tr><th>النوع</th><th>البند</th><th>جهة الصرف</th><th>التاريخ</th><th>المبلغ</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr style="background:#e8f5e9"><td colspan="4" style="padding:8px 10px;font-weight:700">الإجمالي</td><td style="text-align:left;font-weight:700;color:#1b5e20">${kd(total)}</td></tr></tfoot>
+  </table>
+  <br><button onclick="window.print()" style="padding:10px 24px;background:#1b5e20;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer">🖨️ طباعة / حفظ PDF</button>
+  </body></html>`);
+  win.document.close();
 }
 
 // ═══════════════════════════════════════════════
