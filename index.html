@@ -1357,7 +1357,9 @@ function getExportRows(section, filter) {
         else if (filter.startsWith('cat:')) { if (tx.cat !== filter.slice(4)) return; }
         else if (filter.startsWith('party:')) { if (tx.party !== filter.slice(6)) return; }
       }
-      allRows.push({ القسم:sec==='construction'?'بناء':'شهرية', البند:tx.cat||'', الجهة:tx.party||'', التاريخ:tx.date||'', المبلغ:+tx.amount||0, المدفوع:'', المتبقي:'', الدفعة:pLabel });
+      const amt = sec==='construction' ? (+tx.paid||0) : (+tx.amount||0);
+      const tot = sec==='construction' ? (+tx.total||0) : 0;
+      allRows.push({ القسم:sec==='construction'?'بناء':'شهرية', البند:tx.cat||'', الجهة:tx.party||'', التاريخ:tx.date||'', المدفوع:amt, الإجمالي:tot||'', الملاحظات:tx.notes||'', الدفعة:pLabel });
     });
   });
   return allRows;
