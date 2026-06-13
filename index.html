@@ -887,7 +887,7 @@ function delPayment(pid) {
 function openExpModal(pid, eid=null) {
   const e = eid ? S.construction.find(x=>x.id===eid) : null;
   const pay = S.payments.find(p=>p.id===pid);
-  const defDate = e ? e.date||'' : (pay?.date||today());
+  const defDate = e ? e.date||'' : today();
   showModal(`
   <div class="mhdr"><div class="mtitle">${e?'تعديل البند':'إضافة بند مصروفات'}</div><button class="mclose" onclick="closeModal()">✕</button></div>
   <div class="fr2">
