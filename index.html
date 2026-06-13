@@ -254,6 +254,7 @@ let S = { payments:[], construction:[], monthly:[], contracts:{} };
 function loadS() {
   try { const d = localStorage.getItem('htrk'); if (d) S = JSON.parse(d); } catch(e){}
   migrateParty();
+  migrateContractTotals();
 }
 function migrateParty() {
   if (localStorage.getItem('htrk_party_v1')) return;
@@ -267,6 +268,24 @@ function migrateParty() {
   if (changed) saveS();
   localStorage.setItem('htrk_party_v1', '1');
 }
+function migrateContractTotals() {
+  if (localStorage.getItem('htrk_contract_total_v1')) return;
+  let changed = false;
+  S.construction.forEach(e => {
+    if (e.cat && e.total && +e.total > 0) {
+      const existing = contractAmount(e.cat);
+      if (!existing || existing < +e.total) {
+        S.contracts[e.cat] = typeof S.contracts[e.cat]==='object'
+          ? {...S.contracts[e.cat], amount: +e.total}
+          : +e.total;
+        changed = true;
+      }
+    }
+  });
+  if (changed) saveS(false);
+  localStorage.setItem('htrk_contract_total_v1', '1');
+}
+
 const undoStack = [];
 function saveS(undoable=true) {
   if (undoable) {
@@ -962,6 +981,15 @@ async function saveExp(pid, eid) {
     if(e){e.cat=cat;e.party=party;e.paid=paid;e.total=total;e.date=date;e.notes=notes;if(inv)e.inv=inv;}
   } else {
     S.construction.push({id:uid(),pid,cat,party,paid,total,date,notes,inv});
+  }
+  // auto-update contract if total provided
+  if (total && cat) {
+    const existing = contractAmount(cat);
+    if (!existing || existing < total) {
+      S.contracts[cat] = typeof S.contracts[cat]==='object'
+        ? {...S.contracts[cat], amount: total}
+        : total;
+    }
   }
   saveS(); closeModal(); render(); toast(eid?'تم التعديل ✓':'تمت الإضافة ✓');
 }
