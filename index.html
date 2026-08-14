@@ -734,7 +734,7 @@ function renderConstruction() {
             const hasT = contractTotal > 0;
             const cumAfter = e._cumPaid || 0; // total paid for this cat up to this row
             const cumBefore = cumAfter - (+e.paid||0); // total paid before this row
-            const totalForRow = hasT ? contractTotal - cumBefore : null; // remaining before this payment
+            const totalForRow = hasT ? contractTotal : null; // fixed contract total
             const eLeft = hasT ? contractTotal - cumAfter : null; // remaining after this payment
             return `<tr>
               <td>${i+1}</td>
