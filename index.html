@@ -716,14 +716,25 @@ function renderConstruction() {
           </tr></thead>
           <tbody>
           ${exps.map((e,i)=>{
-            const hasT=e.total&&+e.total>0;
-            const eLeft=hasT?+e.total-(+e.paid||0):null;
+            const contractTotal = contractAmount(e.cat);
+            const hasT = contractTotal > 0;
+            // sum all payments to this contract BEFORE and including this row
+            const paidSoFar = S.construction
+              .filter(x => x.cat === e.cat)
+              .reduce((s,x) => s + (+x.paid||0), 0);
+            // remaining after all payments to this contract
+            const eLeft = hasT ? contractTotal - paidSoFar : null;
+            // remaining before this specific payment (for display as "إجمالي" column)
+            const paidBefore = S.construction
+              .filter(x => x.cat === e.cat && x.id !== e.id)
+              .reduce((s,x) => s + (+x.paid||0), 0);
+            const totalForRow = hasT ? contractTotal - paidBefore : null;
             return `<tr>
               <td>${i+1}</td>
               <td><span class="bg ${isContract(e.cat)?'bg-b':'bg-g'}">${e.cat}</span></td>
               <td>${e.party||'—'}</td>
               <td style="direction:ltr;text-align:right"><strong>${kd(e.paid)}</strong></td>
-              <td style="direction:ltr;text-align:right">${hasT?kd(e.total):'—'}</td>
+              <td style="direction:ltr;text-align:right">${totalForRow!==null?kd(totalForRow):'—'}</td>
               <td style="direction:ltr;text-align:right">${eLeft!==null
                 ?`<span style="color:${eLeft<0?'var(--r2)':'var(--g2)'}">${kd(eLeft)}</span>`:'—'}</td>
               <td style="white-space:nowrap;direction:ltr">${fmtD(e.date)}</td>
