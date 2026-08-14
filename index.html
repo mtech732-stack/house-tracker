@@ -157,6 +157,7 @@ select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 <div id="pg-monthly" class="pg"></div>
 <div id="pg-search" class="pg"></div>
 <div id="pg-docs" class="pg"></div>
+<div id="pg-settings" class="pg"></div>
 
 <button class="fab" id="fab" onclick="onFab()">＋</button>
 
@@ -180,6 +181,10 @@ select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   <button class="ni" id="ni-docs" onclick="go('docs')">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.54 15.96.5 13.46.5c-1.48 0-2.74.73-3.54 1.84L9 3.25l-.92-1.09C7.28 1.23 6.02.5 4.54.5 2.04.5 0 2.54 0 4.66c0 .46.11.9.18 1.34H0v2h20V6zm-9.5 0H3.6c-.06-.22-.1-.45-.1-.68 0-1.1.9-2 2-2 .74 0 1.38.4 1.72 1l2.28 3.36V6zm5.5 0h-3.5V7.36L14.78 4c.34-.6.98-1 1.72-1 1.1 0 2 .9 2 2 0 .23-.04.46-.1.68L16 6zM2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8H2zm9 11H5v-2h6v2zm0-4H5v-2h6v2zm8 4h-6v-2h6v2zm0-4h-6v-2h6v2z"/></svg>
     <span>المستندات</span><div class="dot"></div>
+  </button>
+  <button class="ni" id="ni-settings" onclick="go('settings')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+    <span>الإعدادات</span><div class="dot"></div>
   </button>
 </nav>
 
@@ -1467,6 +1472,7 @@ function render() {
   else if (cur==='monthly') renderMonthly();
   else if (cur==='search') renderSearch();
   else if (cur==='docs') renderDocs();
+  else if (cur==='settings') renderSettings();
 }
 
 // ═══════════════════════════════════════════════
@@ -1746,6 +1752,34 @@ function printSearchResults() {
   <br><button onclick="window.print()" style="padding:10px 24px;background:#1b5e20;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer">🖨️ طباعة / حفظ PDF</button>
   </body></html>`);
   win.document.close();
+}
+
+// ═══════════════════════════════════════════════
+//  Settings
+// ═══════════════════════════════════════════════
+function renderSettings() {
+  const el = document.getElementById('pg-settings');
+  el.innerHTML = `
+  <div class="st" style="margin-top:0">🔗 رابط التطبيق</div>
+  <div class="card">
+    <div style="font-size:.82rem;color:var(--txt2);margin-bottom:10px">افتح الرابط في Safari لتحديث التطبيق</div>
+    <a href="https://mtech732-stack.github.io/house-tracker/" target="_blank"
+      style="display:block;background:var(--gl);border:1.5px solid var(--g2);border-radius:12px;padding:14px;color:var(--g1);font-weight:600;font-size:.88rem;word-break:break-all;text-decoration:none">
+      🌐 mtech732-stack.github.io/house-tracker/
+    </a>
+    <button onclick="navigator.clipboard?.writeText('https://mtech732-stack.github.io/house-tracker/').then(()=>toast('تم نسخ الرابط ✓',false))"
+      class="btn btn-g" style="width:100%;justify-content:center;margin-top:10px">📋 نسخ الرابط</button>
+  </div>
+
+  <div class="st">💾 نقل البيانات</div>
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-g" style="justify-content:flex-start" onclick="exportData()">📤 تصدير نسخة احتياطية</button>
+      <label class="btn btn-g" style="justify-content:flex-start;cursor:pointer">📥 استيراد نسخة احتياطية
+        <input type="file" accept=".json" style="display:none" onchange="importData(event)">
+      </label>
+    </div>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════
