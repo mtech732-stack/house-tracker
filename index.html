@@ -316,7 +316,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 //  Calculations
 // ═══════════════════════════════════════════════
 function paymentUsed(pid) {
-  const c = S.construction.filter(e=>e.pid===pid).reduce((s,e)=>s+(+e.paid||0),0);
+  const c = S.construction.filter(e=>e.pid===pid&&e.source!=='own').reduce((s,e)=>s+(+e.paid||0),0);
   const m = S.monthly.filter(e=>e.src==='payment'&&e.pid===pid).reduce((s,e)=>s+(+e.amount||0),0);
   return c + m;
 }
@@ -340,7 +340,7 @@ function contractInstallments(cat) {
   return v.installments||[];
 }
 function contractPaid(cat) {
-  return S.construction.filter(e=>e.cat===cat).reduce((s,e)=>s+(+e.paid||0),0);
+  return S.construction.filter(e=>e.cat===cat&&e.source!=='own').reduce((s,e)=>s+(+e.paid||0),0);
 }
 function totalExp() {
   const c = S.construction.reduce((s,e)=>s+(+e.paid||0),0);
@@ -573,6 +573,18 @@ function renderSummary() {
         </div>`;
       })()}
     </div>
+    ${(()=>{
+      const ownTotal = S.construction.filter(e=>e.source==='own').reduce((s,e)=>s+(+e.paid||0),0);
+      if (!ownTotal) return '';
+      return `<div class="card full" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="lbl" style="color:#7c3aed">🏦 إجمالي المدفوع من الحساب الخاص</div>
+            <div class="val" style="font-size:1.2rem;color:#7c3aed">${kd(ownTotal)}</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
     <div class="card full">
       <div class="lbl">المتبقي الكلي من العقود</div>
       <div class="val o" style="font-size:1.3rem">${kd(tl)}</div>
@@ -666,7 +678,9 @@ function renderConstruction() {
   }
 
   el.innerHTML = pays.map(pay=>{
-    const exps = S.construction.filter(e=>e.pid===pay.id).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+    const allExps = S.construction.filter(e=>e.pid===pay.id).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+    const exps = allExps.filter(e=>e.source!=='own');
+    const ownExps = allExps.filter(e=>e.source==='own');
     const used = paymentUsed(pay.id);
     const left = paymentLeft(pay.id);
     const carried = +pay.carried||0;
@@ -762,8 +776,38 @@ function renderConstruction() {
         </table>
         </div>`
         :`<div style="padding:18px;text-align:center;color:var(--txt2);font-size:.82rem">لا توجد بنود — اضغط "+ إضافة بند"</div>`}
+        ${ownExps.length?`
+        <div style="margin-top:10px;border-radius:12px;border:2px solid #7c3aed22;overflow:hidden">
+          <div style="background:#7c3aed;color:#fff;padding:8px 14px;font-size:.82rem;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+            <span>🏦 من الحساب الخاص</span>
+            <span>${kd(ownExps.reduce((s,e)=>s+(+e.paid||0),0))}</span>
+          </div>
+          <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th><th>البند</th><th>الجهة</th>
+              <th>المدفوع</th><th>التاريخ</th><th>ملاحظات</th><th>فاتورة</th><th></th>
+            </tr></thead>
+            <tbody>
+            ${ownExps.map((e,i)=>`<tr style="background:#f5f3ff">
+              <td>${i+1}</td>
+              <td><span class="bg bg-b">${e.cat}</span></td>
+              <td>${e.party||'—'}</td>
+              <td style="direction:ltr;text-align:right"><strong style="color:#7c3aed">${kd(e.paid)}</strong></td>
+              <td style="white-space:nowrap;direction:ltr">${fmtD(e.date)}</td>
+              <td>${noteCell(e.notes||'')}</td>
+              <td>${e.inv?`<a href="${e.inv}" target="_blank" class="invlink">📎</a>`:'—'}</td>
+              <td style="white-space:nowrap">
+                <button class="bic" onclick="openExpModal('${pay.id}','${e.id}')" title="تعديل">✏️</button>
+                <button class="bic" onclick="delExp('${e.id}')" title="حذف">🗑️</button>
+              </td>
+            </tr>`).join('')}
+            </tbody>
+          </table>
+          </div>
+        </div>`:''}
         <div class="pfoot">
-          <span>الصرف الكلي: <strong>${kd(used)}</strong></span>
+          <span>الصرف من الدفعة: <strong>${kd(used)}</strong></span>
           <span>المتبقي: <strong style="color:${left<0?'var(--r2)':'var(--g1)'}">${kd(left)}</strong></span>
         </div>
       </div>
@@ -926,6 +970,14 @@ function openExpModal(pid, eid=null) {
     </div>
   </div>
   <div id="f-contract-info"></div>
+  <div class="fg">
+    <label class="fl">مصدر المبلغ</label>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button id="src-pay" onclick="setExpSource('payment')" class="btn btn-p btn-sm" style="flex:1;${e?.source==='own'?'opacity:.45;background:var(--bdr);color:var(--txt2);border:1px solid var(--bdr)':''}">💳 من الدفعة</button>
+      <button id="src-own" onclick="setExpSource('own')" class="btn btn-sm" style="flex:1;background:${e?.source==='own'?'#7c3aed':'var(--bdr)'};color:${e?.source==='own'?'#fff':'var(--txt2)'};border:1px solid ${e?.source==='own'?'#7c3aed':'var(--bdr)'}">🏦 من الحساب الخاص</button>
+    </div>
+    <input type="hidden" id="f-source" value="${e?.source||'payment'}">
+  </div>
   <div class="fg"><label class="fl">تاريخ العملية</label><input class="fc" id="f-ed" type="date" value="${defDate}"></div>
   <div class="fg"><label class="fl">ملاحظات</label><textarea class="fc" id="f-en" rows="2">${e?e.notes||'':''}</textarea></div>
   <div class="fg"><label class="fl">رفع الفاتورة</label>
@@ -939,6 +991,19 @@ function openExpModal(pid, eid=null) {
   setTimeout(autofillContract, 80);
 }
 
+function setExpSource(v) {
+  document.getElementById('f-source').value = v;
+  const bp = document.getElementById('src-pay');
+  const bo = document.getElementById('src-own');
+  if (v==='own') {
+    bp.style.cssText='flex:1;opacity:.45;background:var(--bdr);color:var(--txt2);border:1px solid var(--bdr)';
+    bo.style.cssText='flex:1;background:#7c3aed;color:#fff;border:1px solid #7c3aed';
+  } else {
+    bp.style.cssText='flex:1';
+    bp.className='btn btn-p btn-sm';
+    bo.style.cssText='flex:1;background:var(--bdr);color:var(--txt2);border:1px solid var(--bdr)';
+  }
+}
 function autofillContract() {
   const inp = document.getElementById('f-ec-custom');
   const info = document.getElementById('f-contract-info');
@@ -993,13 +1058,14 @@ async function saveExp(pid, eid) {
   const date = document.getElementById('f-ed').value;
   const notes = document.getElementById('f-en').value;
   const file = document.getElementById('f-ei').files[0];
+  const source = document.getElementById('f-source')?.value || 'payment';
   if (!paid){toast('يرجى إدخال المبلغ المدفوع');return;}
   let inv = file ? await toB64(file) : (eid ? S.construction.find(x=>x.id===eid)?.inv||null : null);
   if (eid) {
     const e=S.construction.find(x=>x.id===eid);
-    if(e){e.cat=cat;e.party=party;e.paid=paid;e.total=total;e.date=date;e.notes=notes;if(inv)e.inv=inv;}
+    if(e){e.cat=cat;e.party=party;e.paid=paid;e.total=total;e.date=date;e.notes=notes;e.source=source;if(inv)e.inv=inv;}
   } else {
-    S.construction.push({id:uid(),pid,cat,party,paid,total,date,notes,inv});
+    S.construction.push({id:uid(),pid,cat,party,paid,total,date,notes,inv,source});
   }
   // auto-update contract if total provided
   if (total && cat) {
