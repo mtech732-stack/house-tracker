@@ -707,11 +707,8 @@ function renderConstruction() {
           <div class="ph-num">
             <div class="l">المتبقي</div>
             <div class="v${left<0?' neg':''}" style="direction:ltr">${kd(left)}</div>
+            ${ownExps.length?`<div style="font-size:.68rem;color:#e9d5ff;margin-top:3px;direction:ltr">🏦 ${kd(ownExps.reduce((s,e)=>s+(+e.paid||0),0))}</div>`:''}
           </div>
-          ${ownExps.length?`<div class="ph-num" style="background:rgba(124,58,237,.25)">
-            <div class="l">حساب خاص</div>
-            <div class="v" style="direction:ltr;color:#e9d5ff">${kd(ownExps.reduce((s,e)=>s+(+e.paid||0),0))}</div>
-          </div>`:''}
         </div>
         <button onclick="event.stopPropagation();openPaymentModal('${pay.id}')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:8px;color:#fff;padding:5px 9px;font-size:.8rem;cursor:pointer;white-space:nowrap;margin-right:4px">✏️</button>
       </div>
