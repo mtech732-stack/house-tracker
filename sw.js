@@ -1,4 +1,4 @@
-const CACHE = 'house-tracker-v5';
+const CACHE = 'house-tracker-v6';
 const ASSETS = ['./index.html', './manifest.json', './IMG_0189.jpg'];
 
 self.addEventListener('install', e => {
@@ -8,5 +8,9 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  if (e.request.url.endsWith('index.html') || e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  } else {
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  }
 });

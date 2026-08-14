@@ -720,20 +720,22 @@ function renderConstruction() {
             <th>التاريخ</th><th>ملاحظات</th><th>فاتورة</th><th></th>
           </tr></thead>
           <tbody>
-          ${exps.map((e,i)=>{
+          ${(()=>{
+            // build cumulative paid per contract across ALL construction sorted by date
+            const allSorted = [...S.construction].sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+            const cumPaid = {}; // id -> cumulative paid for that cat up to and including this row
+            allSorted.forEach(x=>{
+              if(!cumPaid[x.cat]) cumPaid[x.cat]=0;
+              cumPaid[x.cat] += (+x.paid||0);
+              x._cumPaid = cumPaid[x.cat];
+            });
+            return exps.map((e,i)=>{
             const contractTotal = contractAmount(e.cat);
             const hasT = contractTotal > 0;
-            // sum all payments to this contract BEFORE and including this row
-            const paidSoFar = S.construction
-              .filter(x => x.cat === e.cat)
-              .reduce((s,x) => s + (+x.paid||0), 0);
-            // remaining after all payments to this contract
-            const eLeft = hasT ? contractTotal - paidSoFar : null;
-            // remaining before this specific payment (for display as "إجمالي" column)
-            const paidBefore = S.construction
-              .filter(x => x.cat === e.cat && x.id !== e.id)
-              .reduce((s,x) => s + (+x.paid||0), 0);
-            const totalForRow = hasT ? contractTotal - paidBefore : null;
+            const cumAfter = e._cumPaid || 0; // total paid for this cat up to this row
+            const cumBefore = cumAfter - (+e.paid||0); // total paid before this row
+            const totalForRow = hasT ? contractTotal - cumBefore : null; // remaining before this payment
+            const eLeft = hasT ? contractTotal - cumAfter : null; // remaining after this payment
             return `<tr>
               <td>${i+1}</td>
               <td><span class="bg ${isContract(e.cat)?'bg-b':'bg-g'}">${e.cat}</span></td>
@@ -750,7 +752,8 @@ function renderConstruction() {
                 <button class="bic" onclick="delExp('${e.id}')" title="حذف">🗑️</button>
               </td>
             </tr>`;
-          }).join('')}
+          }).join('');
+          })()}
           </tbody>
           <tfoot><tr class="tfoot">
             <td colspan="3">مجموع الدفعة ${pay.num}</td>
