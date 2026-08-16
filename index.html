@@ -340,7 +340,9 @@ function contractInstallments(cat) {
   return v.installments||[];
 }
 function contractPaid(cat) {
-  return S.construction.filter(e=>e.cat===cat&&e.source!=='own').reduce((s,e)=>s+(+e.paid||0),0);
+  const c = S.construction.filter(e=>e.cat===cat).reduce((s,e)=>s+(+e.paid||0),0);
+  const m = S.monthly.filter(e=>e.cat===cat).reduce((s,e)=>s+(+e.amount||0),0);
+  return c + m;
 }
 function totalExp() {
   const c = S.construction.reduce((s,e)=>s+(+e.paid||0),0);
